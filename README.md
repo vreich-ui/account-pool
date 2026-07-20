@@ -37,10 +37,16 @@ timeline/feed, reply, favourite/boost or like/repost, read, and search. Self-ide
 enforced — Mastodon sets the account **bot flag** at connect; Bluesky records the automated
 **self-label**. Bluesky requires an app password.
 
+**M3 — X / Twitter.** `adapters/twitter.py` (tweepy v2, sync SDK wrapped in a worker thread):
+authenticate, publish a tweet, reply, like/retweet, read a tweet, and recent search. Reads are
+tier-sensitive — construct with `reads_enabled=False` (or expect 403s on the free tier), which turns
+off the read/search capabilities up front so callers degrade gracefully.
+
 Enable real adapters per platform via `ACCOUNT_POOL_REAL_ADAPTERS` (comma-separated, e.g.
-`reddit,mastodon,bluesky`) and install the matching extras (`pip install -e '.[reddit,mastodon,bluesky]'`);
-everything else stays on the `FakeAdapter`, and `dry_run` still gates writes. Remaining adapters
-(X → Medium/Substack draft-only) land in later milestones. See `src/account_pool/adapters/`.
+`reddit,mastodon,bluesky,twitter`) and install the matching extras
+(`pip install -e '.[reddit,mastodon,bluesky,twitter]'`); everything else stays on the `FakeAdapter`,
+and `dry_run` still gates writes. Remaining adapters (Medium/Substack draft-only) land in a later
+milestone. See `src/account_pool/adapters/`.
 
 ## Layout
 

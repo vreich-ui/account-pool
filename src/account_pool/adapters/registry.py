@@ -22,11 +22,13 @@ def _real_adapter_factories() -> dict[Platform, AdapterFactory]:
     from .bluesky import BlueskyAdapter
     from .mastodon import MastodonAdapter
     from .reddit import RedditAdapter
+    from .twitter import TwitterAdapter
 
     return {
         Platform.REDDIT: RedditAdapter,
         Platform.MASTODON: MastodonAdapter,
         Platform.BLUESKY: BlueskyAdapter,
+        Platform.TWITTER: TwitterAdapter,
     }
 
 
