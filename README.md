@@ -48,6 +48,14 @@ Enable real adapters per platform via `ACCOUNT_POOL_REAL_ADAPTERS` (comma-separa
 and `dry_run` still gates writes. Remaining adapters (Medium/Substack draft-only) land in a later
 milestone. See `src/account_pool/adapters/`.
 
+**M4 — approval polish + admin surface.** Approvals now carry a TTL (`approval_ttl_seconds`) and
+can't be approved once stale; a changes-requested approval can be **resubmitted** against the latest
+draft revision (`approval_resubmit`); and an optional **notifier** hook fires when an act is queued
+(wire Slack/email later). A thin **FastAPI admin surface** (`server/rest_admin.py`, run
+`account-pool-admin`, install `.[admin]`) gives humans read access to accounts/inventory/audit and
+lets them approve/reject/resubmit queued acts — guarded by a bearer token
+(`ACCOUNT_POOL_ADMIN_BEARER`).
+
 ## Layout
 
 ```

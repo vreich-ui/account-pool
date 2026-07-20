@@ -7,6 +7,7 @@ self-promo) are updated only on a successful execute.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -73,6 +74,7 @@ class ActionService:
         coordination: CoordinationTracker,
         promo_ledger: SelfPromoLedger,
         settings: Settings | None = None,
+        notifier: Callable[[ApprovalItem, Account], None] | None = None,
     ) -> None:
         self._accounts = accounts
         self._connections = connections
@@ -87,6 +89,7 @@ class ActionService:
         self._coord = coordination
         self._promo = promo_ledger
         self._settings = settings or get_settings()
+        self._notifier = notifier
 
     # ---- lookups -------------------------------------------------------------
     def _get_account(self, account_id: str) -> Account:
@@ -373,6 +376,7 @@ class ActionService:
                 policy_snapshot=snapshot,
                 message=f"queued approval {approval.approval_id}",
             )
+            self._notify(approval, account)
             return action
 
         return await self._execute(
@@ -601,6 +605,31 @@ class ActionService:
         if decision != "approve":
             raise InvalidState(f"unknown decision '{decision}'")
 
+        # An approval that has aged past its TTL can no longer be approved.
+        if approval.is_expired():
+            self._approvals.set_state(
+                approval,
+                ReviewState.CHANGES_REQUESTED,
+                decided_by=decided_by,
+                reason="approval expired",
+            )
+            action.state = ActionState.REFUSED
+            self._actions.upsert(action)
+            self._audit.record(
+                decided_by,
+                action.type.value,
+                DecisionOutcome.DENY,
+                account_id=account.account_id,
+                action_id=action.action_id,
+                denial_code=DenialCode.APPROVAL_STALE,
+                message="approval expired",
+            )
+            return {
+                "approval_id": approval_id,
+                "action_state": ActionState.REFUSED.value,
+                "denial_code": DenialCode.APPROVAL_STALE.value,
+            }
+
         # ---- approve: re-check staleness + eligibility, then execute ----
         draft = self._get_draft(action.draft_id) if action.draft_id else None
         if (
@@ -673,12 +702,51 @@ class ActionService:
             "result": executed.result,
         }
 
+    async def resubmit_approval(self, caller: str, approval_id: str) -> dict[str, Any]:
+        """Re-open a changes-requested approval against the latest draft revision for re-review."""
+        approval = self._approvals.get(approval_id)
+        if approval is None:
+            raise NotFound(f"approval '{approval_id}' not found")
+        action = self._actions.get(approval.action_id)
+        if action is None:
+            raise NotFound(f"action '{approval.action_id}' not found")
+        account = self._get_account(action.account_id)
+        draft = self._get_draft(action.draft_id) if action.draft_id else None
+        self._approvals.reopen(approval, pinned_revision=draft.revision if draft else None)
+        action.state = ActionState.NEEDS_APPROVAL
+        self._actions.upsert(action)
+        self._audit.record(
+            caller,
+            action.type.value,
+            DecisionOutcome.ROUTE_TO_APPROVAL,
+            account_id=account.account_id,
+            action_id=action.action_id,
+            denial_code=DenialCode.APPROVAL_REQUIRED,
+            message="resubmitted for review",
+        )
+        self._notify(approval, account)
+        return {
+            "approval_id": approval_id,
+            "review_state": ReviewState.OPEN.value,
+            "pinned_revision": approval.pinned_revision,
+        }
+
+    def _notify(self, approval: ApprovalItem, account: Account) -> None:
+        if self._notifier is None:
+            return
+        try:
+            self._notifier(approval, account)
+        except Exception:  # a failing notifier must never break the acting path
+            pass
+
     # ---- reads for observability ---------------------------------------------
     def get_action(self, action_id: str) -> Action | None:
         return self._actions.get(action_id)
 
-    def list_open_approvals(self) -> list[ApprovalItem]:
-        return self._approvals.list_open()
+    def list_open_approvals(
+        self, platform: str | None = None, account_id: str | None = None
+    ) -> list[ApprovalItem]:
+        return self._approvals.list_open(platform=platform, account_id=account_id)
 
     def get_approval(self, approval_id: str) -> ApprovalItem | None:
         return self._approvals.get(approval_id)

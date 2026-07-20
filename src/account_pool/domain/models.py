@@ -247,6 +247,10 @@ class ApprovalItem(_Base):
     decided_at: datetime | None = None
     reason: str | None = None
     created_at: datetime = Field(default_factory=clock.now)
+    expires_at: datetime | None = None  # open approvals past this are stale (cannot be approved)
+
+    def is_expired(self, at: datetime | None = None) -> bool:
+        return self.expires_at is not None and (at or clock.now()) > self.expires_at
 
 
 class AuditEvent(_Base):

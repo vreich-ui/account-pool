@@ -337,9 +337,10 @@ def build_mcp(app: AppContext) -> FastMCP:
 
     # ================= Approvals =================
     @mcp.tool()
-    def approvals_list() -> list[dict[str, Any]]:
-        """List open approval items awaiting a human decision."""
-        return [x.model_dump(mode="json") for x in approvals.list_open()]
+    def approvals_list(platform: str | None = None, account_id: str | None = None) -> list[dict[str, Any]]:
+        """List open approval items awaiting a human decision (optionally filtered)."""
+        items = approvals.list_open(platform=platform, account_id=account_id)
+        return [{**x.model_dump(mode="json"), "expired": x.is_expired()} for x in items]
 
     @mcp.tool()
     def approval_get(approval_id: str) -> dict[str, Any]:
@@ -355,6 +356,11 @@ def build_mcp(app: AppContext) -> FastMCP:
     ) -> dict[str, Any]:
         """Decide an approval: 'approve' (executes), 'reject', or 'request_changes'."""
         return await actions.decide_approval(approval_id, decision, decided_by, reason)
+
+    @mcp.tool()
+    async def approval_resubmit(approval_id: str, agent_name: str) -> dict[str, Any]:
+        """Re-open a changes-requested approval against the latest draft revision for re-review."""
+        return await actions.resubmit_approval(normalize_agent(agent_name), approval_id)
 
     # ================= Observability =================
     @mcp.tool()

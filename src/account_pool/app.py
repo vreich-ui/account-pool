@@ -6,6 +6,7 @@ one place.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from .accounts.service import AccountService
@@ -24,6 +25,7 @@ from .db.repositories import (
     ConnectionRepository,
     DraftRepository,
 )
+from .domain.models import Account, ApprovalItem
 from .policy.engine import PolicyEngine
 from .policy.ratelimit import RateLimiter
 from .policy.trackers import CoordinationTracker, SelfPromoLedger
@@ -55,6 +57,7 @@ def build_app(
     *,
     registry: AdapterRegistry | None = None,
     vault: EncryptedVault | None = None,
+    notifier: Callable[[ApprovalItem, Account], None] | None = None,
 ) -> AppContext:
     settings = settings or get_settings()
 
@@ -78,7 +81,7 @@ def build_app(
     audit_repo = AuditRepository(db)
 
     audit = AuditLogger(audit_repo)
-    approvals = ApprovalQueue(approval_repo)
+    approvals = ApprovalQueue(approval_repo, ttl_seconds=settings.approval_ttl_seconds)
     lock_service = LockService(accounts_repo, settings.default_lock_ttl_seconds)
     account_service = AccountService(accounts_repo, connections_repo, registry, provider, audit)
     action_service = ActionService(
@@ -95,6 +98,7 @@ def build_app(
         coordination=coordination,
         promo_ledger=promo_ledger,
         settings=settings,
+        notifier=notifier,
     )
 
     return AppContext(
