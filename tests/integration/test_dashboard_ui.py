@@ -33,6 +33,23 @@ def test_render_page_is_self_contained_html():
     assert len(sample_json()) > 100  # preview data available
 
 
+def test_page_has_account_management_affordances():
+    page = render_page()
+    # add-account entry point + form scaffolding
+    assert 'id="addToggle"' in page and "Add an account" in page
+    assert 'id="addForm"' in page
+    assert "buildAddForm" in page and "addAccount" in page
+    # inline authorize + connect fields the form gathers
+    assert "consent_scope" in page and "auth_type" in page
+    # per-account lifecycle actions wired to the REST endpoints
+    for verb in ("health-check", "refresh-credentials", "disconnect", "revoke", "retire"):
+        assert verb in page
+    # per-account detail expander pulls connection metadata
+    assert "/connection" in page and "fillDetail" in page
+    # destructive actions arm before firing
+    assert "confirmMini" in page
+
+
 def test_dashboard_and_new_endpoints_served(app):
     client = TestClient(build_admin_app(app))
     home = client.get("/")

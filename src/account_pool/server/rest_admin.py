@@ -114,6 +114,106 @@ def build_admin_app(app: AppContext) -> Any:
     def get_account(account_id: str) -> dict[str, Any]:
         return app.account_service.get(account_id).model_dump(mode="json")
 
+    @api.get("/accounts/{account_id}/connection", dependencies=auth)
+    def account_connection(account_id: str) -> dict[str, Any]:
+        conn = app.account_service.get_connection(account_id)
+        return conn.model_dump(mode="json") if conn else {"connection": None}
+
+    # ---- account lifecycle (administration) ----
+    @api.post("/accounts", dependencies=auth)
+    async def create_account(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        """Register an account; optionally authorize and connect it in the same call."""
+        acc_svc = app.account_service
+        agent = body.get("agent_name", "admin")
+        account = acc_svc.register(
+            agent, body["platform"], body["handle"],
+            display_name=body.get("display_name"), persona=body.get("persona"),
+            pool=body.get("pool"), tags=body.get("tags"),
+        )
+        aid = account.account_id
+        if body.get("authorize"):
+            az = body["authorize"]
+            account = acc_svc.authorize(
+                agent, aid, owner=az["owner"], consent_scope=az["consent_scope"],
+                evidence_ref=az.get("evidence_ref"), attested_by=az.get("attested_by"),
+            )
+        if body.get("connect"):
+            cn = body["connect"]
+            account = await acc_svc.connect(
+                agent, aid, cn["auth_type"], cn.get("credentials", {}),
+                scopes=cn.get("scopes"), provider=cn.get("provider"),
+            )
+        return account.model_dump(mode="json")
+
+    @api.post("/accounts/{account_id}/authorize", dependencies=auth)
+    def authorize(account_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        a = app.account_service.authorize(
+            body.get("agent_name", "admin"), account_id, owner=body["owner"],
+            consent_scope=body["consent_scope"], evidence_ref=body.get("evidence_ref"),
+            attested_by=body.get("attested_by"),
+        )
+        return a.model_dump(mode="json")
+
+    @api.post("/accounts/{account_id}/connect", dependencies=auth)
+    async def connect(account_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        a = await app.account_service.connect(
+            body.get("agent_name", "admin"), account_id, body["auth_type"],
+            body.get("credentials", {}), scopes=body.get("scopes"), provider=body.get("provider"),
+        )
+        return a.model_dump(mode="json")
+
+    @api.post("/accounts/{account_id}/refresh-credentials", dependencies=auth)
+    async def refresh_credentials(account_id: str, body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+        a = await app.account_service.refresh_credentials(body.get("agent_name", "admin"), account_id)
+        return a.model_dump(mode="json")
+
+    @api.post("/accounts/{account_id}/health-check", dependencies=auth)
+    async def account_health(account_id: str, body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+        a = await app.account_service.health_check(body.get("agent_name", "admin"), account_id)
+        return {"account_id": a.account_id, "health": a.health.model_dump(mode="json")}
+
+    @api.post("/accounts/{account_id}/checkout", dependencies=auth)
+    def checkout(account_id: str, body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+        a = app.lock_service.checkout(
+            account_id, body.get("agent_name", "admin"), body.get("ttl_seconds")
+        )
+        return {
+            "account_id": a.account_id,
+            "lock_token": a.lock.token if a.lock else None,
+            "record_version": a.record_version,
+            "expires_at": a.lock.expires_at.isoformat() if a.lock else None,
+        }
+
+    @api.post("/accounts/{account_id}/checkin", dependencies=auth)
+    def checkin(account_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        a = app.lock_service.checkin(account_id, body.get("agent_name", "admin"), body["lock_token"])
+        return {"account_id": a.account_id, "locked": False, "status": a.status.value}
+
+    @api.patch("/accounts/{account_id}", dependencies=auth)
+    def patch_account(account_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        a = app.account_service.patch(
+            body.get("agent_name", "admin"), account_id, body["lock_token"],
+            body["expected_record_version"], body["updates"],
+        )
+        return a.model_dump(mode="json")
+
+    @api.post("/accounts/{account_id}/retire", dependencies=auth)
+    def retire(account_id: str, body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+        a = app.account_service.retire(body.get("agent_name", "admin"), account_id, body.get("reason"))
+        return {"account_id": a.account_id, "status": a.status.value}
+
+    @api.post("/accounts/{account_id}/revoke", dependencies=auth)
+    def revoke(account_id: str, body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+        a = app.account_service.revoke_authorization(
+            body.get("agent_name", "admin"), account_id, body.get("reason")
+        )
+        return {"account_id": a.account_id, "status": a.status.value}
+
+    @api.post("/accounts/{account_id}/disconnect", dependencies=auth)
+    def disconnect(account_id: str, body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+        a = app.account_service.disconnect(body.get("agent_name", "admin"), account_id)
+        return {"account_id": a.account_id, "status": a.status.value, "connection_id": None}
+
     @api.get("/inventory", dependencies=auth)
     def inventory() -> dict[str, Any]:
         accounts = app.account_service.list()

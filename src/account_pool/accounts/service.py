@@ -24,7 +24,7 @@ from ..domain.enums import (
     Platform,
 )
 from ..domain.ids import account_id as mint_account_id
-from ..domain.models import Account, Authorization, Persona
+from ..domain.models import Account, Authorization, Connection, Persona
 from ..errors import InvalidState, LockHeld, NotFound
 from ..vault.provider import ConnectionProvider
 
@@ -305,9 +305,40 @@ class AccountService:
         )
         return account
 
+    # ---- disconnect (remove credentials) -------------------------------------
+    def disconnect(self, caller: str, account_id: str) -> Account:
+        """Remove the account's stored credentials/connection (revokes the platform-API link)."""
+        account = self._get(account_id)
+        expected = account.record_version
+        if account.connection_id:
+            conn = self._connections.get(account.connection_id)
+            if conn is not None:
+                try:
+                    self._provider.delete(conn)
+                except Exception:
+                    pass
+                self._connections.delete(conn.connection_id)
+        account.connection_id = None
+        account.compliance.bot_flag_set = False
+        account.compliance.self_label = None
+        self._recompute_status(account)
+        account = self._accounts.update(account, expected_version=expected)
+        self._audit.record(
+            caller, "account_disconnect", DecisionOutcome.ALLOW,
+            account_id=account_id, message="connection removed",
+        )
+        return account
+
     # ---- reads ---------------------------------------------------------------
     def get(self, account_id: str) -> Account:
         return self._get(account_id)
+
+    def get_connection(self, account_id: str) -> Connection | None:
+        """Connection metadata for an account (never any secret material)."""
+        account = self._get(account_id)
+        if not account.connection_id:
+            return None
+        return self._connections.get(account.connection_id)
 
     def list(
         self,

@@ -140,6 +140,28 @@ details .body{padding:2px 16px 14px}
 .tokrow{display:flex;gap:8px;margin:6px 2px 0}
 .tokrow input{flex:1;border:1px solid var(--border);border-radius:10px;padding:9px 12px;background:var(--surface);
   color:var(--text);font:inherit;font-size:14px}
+.addbtn{appearance:none;border:1px dashed var(--border);background:transparent;color:var(--accent);
+  border-radius:12px;padding:10px 14px;font:inherit;font-weight:620;font-size:14px;cursor:pointer;width:100%;margin:2px 0 12px}
+.addbtn:hover{border-color:var(--accent)}
+.addform{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.field label{font-size:12.5px;color:var(--muted);font-weight:580}
+.field input,.field select,.field textarea{border:1px solid var(--border);border-radius:10px;padding:9px 11px;
+  background:var(--surface);color:var(--text);font:inherit;font-size:14px}
+.field textarea{min-height:60px;resize:vertical;font-family:ui-monospace,monospace;font-size:12.5px}
+.scopes{display:flex;gap:14px;flex-wrap:wrap}
+.scopes label{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--text);font-weight:500}
+.acct{cursor:pointer}
+.acct .chev{color:var(--faint);font-size:11px;margin-left:6px}
+.detail{background:var(--surface-2);border-radius:12px;padding:12px 13px;margin:2px 0 10px;font-size:13.5px}
+.detail .row{display:flex;gap:8px;padding:3px 0;color:var(--muted)}
+.detail .row b{color:var(--text);font-weight:580;min-width:92px}
+.miniacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.mini{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);
+  border-radius:9px;padding:7px 12px;font:inherit;font-size:13px;font-weight:560;cursor:pointer}
+.mini:hover{border-color:var(--accent);color:var(--accent)}
+.mini.warn{color:var(--attn)} .mini.warn:hover{border-color:var(--attn)}
+.mini.armed{background:var(--attn-soft);color:var(--attn);border-color:var(--attn)}
 .hide{display:none!important}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 """
@@ -166,7 +188,11 @@ BODY = """
 
   <h2 class="section">Everything else</h2>
   <details id="acctBox"><summary>Accounts <span class="count" id="acctCount"></span></summary>
-    <div class="body" id="accts"></div></details>
+    <div class="body">
+      <button class="addbtn" id="addToggle">+ Add an account</button>
+      <div id="addForm" class="addform hide"></div>
+      <div id="accts"></div>
+    </div></details>
   <details id="pfBox"><summary>Platforms <span class="count" id="pfCount"></span></summary>
     <div class="body"><div class="grid" id="platforms"></div></div></details>
   <details id="logBox"><summary>Recent activity <span class="count" id="logCount"></span></summary>
@@ -183,7 +209,7 @@ SCRIPT = r"""
 const PREVIEW = window.__ACCOUNT_POOL_BOOTSTRAP__;
 const $ = (s,r=document)=>r.querySelector(s);
 const elc = (t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
-const state = {approvals:[], sel:0};
+const state = {approvals:[], sel:0, platforms:[]};
 
 /* theme */
 (function(){ const t=localStorage.getItem('ap_theme'); if(t) document.documentElement.setAttribute('data-theme',t); })();
@@ -207,14 +233,49 @@ async function api(path,opts){
   if(!res.ok){ const e=new Error('http '+res.status); e.code=res.status; throw e; }
   return res.status===204?null:res.json();
 }
+function logEvent(b,verb,outcome,message){
+  b.audit.unshift({event_id:'e'+Date.now(),ts:new Date().toISOString(),actor:'you',verb,outcome,message});
+}
+function recount(b){ const s={}; const p={};
+  b.accounts.forEach(a=>{ s[a.status]=(s[a.status]||0)+1; p[a.platform]=(p[a.platform]||0)+1; });
+  b.inventory.total=b.accounts.length; b.inventory.by_status=s; b.inventory.by_platform=p; }
 function preview(path,opts){
-  const b=PREVIEW;
+  const b=PREVIEW; const m=(opts.method||'GET').toUpperCase();
+  const body=opts.body?JSON.parse(opts.body):{};
   if(path==='/config') return Promise.resolve(b.config);
   if(path==='/inventory') return Promise.resolve(b.inventory);
   if(path==='/approvals') return Promise.resolve(b.approvals.slice());
-  if(path==='/accounts') return Promise.resolve(b.accounts);
   if(path==='/platforms') return Promise.resolve(b.platforms);
   if(path==='/audit') return Promise.resolve(b.audit);
+  if(path==='/accounts' && m==='GET') return Promise.resolve(b.accounts);
+  if(path==='/accounts' && m==='POST'){
+    const st=body.connect?(body.authorize?'active':'connected'):'draft';
+    const acc={account_id:'acct_'+body.platform+'_'+body.handle+'_'+(b.accounts.length+1),
+      platform:body.platform, handle:body.handle, status:st, health:body.connect?'ok':'unknown'};
+    b.accounts.push(acc); recount(b);
+    logEvent(b,'account_register','allow','registered '+body.platform+':'+body.handle);
+    if(body.authorize) logEvent(b,'account_authorize','allow','authorized for '+body.authorize.owner);
+    if(body.connect) logEvent(b,'account_connect','allow','connected; status='+st);
+    return Promise.resolve(acc);
+  }
+  let mm=path.match(/^\/accounts\/([^/]+)\/connection$/);
+  if(mm){ const a=b.accounts.find(x=>x.account_id===mm[1]);
+    return Promise.resolve(a && a.status!=='draft'
+      ? {connection_id:'conn_'+a.account_id,account_id:a.account_id,platform:a.platform,
+         auth_type:'oauth2',provider:'builtin',scopes:['publish','read']}
+      : {connection:null}); }
+  mm=path.match(/^\/accounts\/([^/]+)\/([a-z-]+)$/);
+  if(mm && m==='POST'){ const a=b.accounts.find(x=>x.account_id===mm[1]); const verb=mm[2];
+    if(a){
+      if(verb==='health-check'){ a.health='ok'; logEvent(b,'account_health_check','allow','health=ok'); }
+      else if(verb==='refresh-credentials'){ logEvent(b,'account_refresh_credentials','allow','refresh ok=true'); }
+      else if(verb==='retire'){ a.status='retired'; logEvent(b,'account_retire','allow','retired'); }
+      else if(verb==='revoke'){ a.status='suspended'; logEvent(b,'account_revoke','allow','authorization revoked'); }
+      else if(verb==='disconnect'){ a.status='draft'; logEvent(b,'account_disconnect','allow','connection removed'); }
+      recount(b);
+    }
+    return Promise.resolve({account_id:mm[1], status:a?a.status:'unknown'});
+  }
   if(/\/decide$/.test(path)){ const id=path.split('/')[2];
     b.approvals=b.approvals.filter(a=>a.approval_id!==id); b.inventory.open_approvals=b.approvals.length;
     return Promise.resolve({action_state:'done'}); }
@@ -281,11 +342,121 @@ async function decide(a,decision,reason){
 
 function renderAccounts(list){
   $('#acctCount').textContent=list.length; const box=$('#accts'); box.innerHTML='';
-  if(!list.length){ box.append(elc('div','l','No accounts yet.')); return; }
-  list.forEach(a=>{ const r=elc('div','acct');
-    r.append(Object.assign(elc('span','sdot '+a.status),{}) );
-    const h=elc('span','h','@'+a.handle); const p=elc('span','p',a.platform);
-    r.append(h,p,elc('span','st',a.status)); box.append(r); });
+  if(!list.length){ box.append(elc('div','l','No accounts yet — add one above.')); return; }
+  list.forEach(a=>{
+    const wrap=elc('div');
+    const r=elc('div','acct');
+    r.append(elc('span','sdot '+a.status));
+    r.append(elc('span','h','@'+a.handle));
+    r.append(elc('span','p',a.platform));
+    r.append(elc('span','st',a.status));
+    const chev=elc('span','chev','▸'); r.append(chev);
+    const det=elc('div','detail hide');
+    r.onclick=()=>{ const closed=det.classList.contains('hide');
+      det.classList.toggle('hide'); chev.textContent=closed?'▾':'▸';
+      if(closed && !det.dataset.filled){ det.dataset.filled='1'; fillDetail(det,a); } };
+    wrap.append(r,det); box.append(wrap);
+  });
+}
+async function fillDetail(det,a){
+  det.innerHTML='';
+  const row=(k,v)=>{ const d=elc('div','row'); d.append(elc('b',null,k),
+    elc('span',null,v==null||v===''?'—':String(v))); return d; };
+  det.append(row('Account',a.account_id), row('Status',a.status), row('Health',a.health||'unknown'));
+  const cRow=row('Connection','loading…'); det.append(cRow);
+  try{ const c=await api('/accounts/'+a.account_id+'/connection');
+    const none=!c||('connection' in c && c.connection===null);
+    cRow.querySelector('span').textContent=none?'not connected'
+      :((c.auth_type||'connected')+(c.provider?' · '+c.provider:'')); }
+  catch(e){ cRow.querySelector('span').textContent='—'; }
+  const acts=elc('div','miniacts');
+  acts.append(mini('Health check',()=>acctAction(a,'health-check','Checked health')));
+  if(a.status!=='draft'&&a.status!=='retired')
+    acts.append(mini('Refresh creds',()=>acctAction(a,'refresh-credentials','Refreshed credentials')));
+  if(a.status!=='draft'&&a.status!=='retired')
+    acts.append(confirmMini('Disconnect',()=>acctAction(a,'disconnect','Disconnected')));
+  if(a.status!=='suspended'&&a.status!=='retired')
+    acts.append(confirmMini('Revoke',()=>acctAction(a,'revoke','Revoked authorization')));
+  if(a.status!=='retired')
+    acts.append(confirmMini('Retire',()=>acctAction(a,'retire','Retired')));
+  det.append(acts);
+}
+function mini(label,fn){ const b=elc('button','mini',label); b.onclick=fn; return b; }
+function confirmMini(label,fn){ const b=elc('button','mini warn',label); let armed=false;
+  b.onclick=()=>{ if(!armed){ armed=true; b.classList.add('armed'); b.textContent='Tap again';
+      setTimeout(()=>{ if(armed){ armed=false; b.classList.remove('armed'); b.textContent=label; } },2500); }
+    else { armed=false; b.classList.remove('armed'); b.textContent=label; fn(); } };
+  return b; }
+async function acctAction(a,verb,msg){
+  try{ await api('/accounts/'+a.account_id+'/'+verb,{method:'POST',body:JSON.stringify({agent_name:'you'})});
+    toast(msg); await refresh(); }
+  catch(e){ toast(e.code===401?'Add your admin token first':'Could not complete'); if(e.code===401) needToken(); }
+}
+
+function field(label,el){ const f=elc('div','field'); f.append(elc('label',null,label),el); return f; }
+function buildAddForm(){
+  const f=$('#addForm'); f.innerHTML='';
+  const known=(state.platforms||[]).map(p=>p.platform);
+  const opts=known.length?known:['reddit','mastodon','bluesky','twitter','medium','substack','lemmy','nostr'];
+  const platSel=elc('select'); platSel.id='fPlatform';
+  opts.forEach(p=>{ const o=elc('option',null,p); o.value=p; platSel.append(o); });
+  const handle=elc('input'); handle.id='fHandle'; handle.placeholder='e.g. brand_reddit';
+  const display=elc('input'); display.id='fDisplay'; display.placeholder='optional';
+  const pool=elc('input'); pool.id='fPool'; pool.placeholder='optional (e.g. brand-us)';
+  f.append(field('Platform',platSel), field('Handle',handle), field('Display name',display), field('Pool',pool));
+
+  const azChk=elc('input'); azChk.type='checkbox'; azChk.id='fAz';
+  const azL=elc('label'); azL.style.flexDirection='row'; azL.style.alignItems='center'; azL.style.gap='7px';
+  azL.append(azChk, document.createTextNode('I attest I own or am authorized to operate this account'));
+  const azW=elc('div','field'); azW.append(azL);
+  const azBody=elc('div','hide');
+  const owner=elc('input'); owner.id='fOwner'; owner.placeholder='owner (person/org accountable)';
+  const scopes=elc('div','scopes');
+  [['publish',true],['comment',false],['read',true],['react',false]].forEach(([s,on])=>{
+    const l=elc('label'); const c=elc('input'); c.type='checkbox'; c.value=s; c.checked=on; c.className='fScope';
+    l.append(c, document.createTextNode(' '+s)); scopes.append(l); });
+  azBody.append(field('Owner',owner), field('Consent scope',scopes));
+  azChk.onchange=()=>azBody.classList.toggle('hide',!azChk.checked);
+  f.append(azW,azBody);
+
+  const cnChk=elc('input'); cnChk.type='checkbox'; cnChk.id='fCn';
+  const cnL=elc('label'); cnL.style.flexDirection='row'; cnL.style.alignItems='center'; cnL.style.gap='7px';
+  cnL.append(cnChk, document.createTextNode('Connect credentials now'));
+  const cnW=elc('div','field'); cnW.append(cnL);
+  const cnBody=elc('div','hide');
+  const at=elc('select'); at.id='fAuthType';
+  ['oauth2','app_password','api_key'].forEach(t=>{ const o=elc('option',null,t); o.value=t; at.append(o); });
+  const creds=elc('textarea'); creds.id='fCreds'; creds.placeholder='{"access_token": "..."}';
+  cnBody.append(field('Auth type',at), field('Credentials (JSON)',creds));
+  cnChk.onchange=()=>cnBody.classList.toggle('hide',!cnChk.checked);
+  f.append(cnW,cnBody);
+
+  const bar=elc('div','miniacts');
+  const submit=elc('button','btn primary','Create account'); submit.style.flex='none'; submit.onclick=addAccount;
+  const cancel=elc('button','mini','Cancel'); cancel.onclick=()=>f.classList.add('hide');
+  bar.append(submit,cancel); f.append(bar);
+}
+async function addAccount(){
+  const platform=$('#fPlatform').value, handle=$('#fHandle').value.trim();
+  if(!handle){ toast('Handle is required'); return; }
+  const body={agent_name:'you',platform,handle};
+  const dn=$('#fDisplay').value.trim(); if(dn) body.display_name=dn;
+  const pool=$('#fPool').value.trim(); if(pool) body.pool=pool;
+  if($('#fAz').checked){
+    const owner=$('#fOwner').value.trim();
+    if(!owner){ toast('Owner is required to authorize'); return; }
+    const scope=Array.from(document.querySelectorAll('.fScope')).filter(c=>c.checked).map(c=>c.value);
+    if(!scope.length){ toast('Pick at least one consent scope'); return; }
+    body.authorize={owner,consent_scope:scope};
+  }
+  if($('#fCn').checked){
+    let creds={}; const raw=$('#fCreds').value.trim();
+    if(raw){ try{ creds=JSON.parse(raw); }catch(e){ toast('Credentials must be valid JSON'); return; } }
+    body.connect={auth_type:$('#fAuthType').value,credentials:creds};
+  }
+  try{ await api('/accounts',{method:'POST',body:JSON.stringify(body)});
+    toast('Account created ✓'); $('#addForm').classList.add('hide'); await refresh(); }
+  catch(e){ toast(e.code===401?'Add your admin token first':'Could not create'+(e.code?' ('+e.code+')':'')); if(e.code===401) needToken(); }
 }
 function renderPlatforms(list){
   $('#pfCount').textContent=list.length; const g=$('#platforms'); g.innerHTML='';
@@ -314,6 +485,7 @@ function needToken(){ $('#tokwrap').classList.remove('hide'); $('#tok').focus();
 async function refresh(){
   const [inv,appr,acc,pf,log]=await Promise.all([
     api('/inventory'),api('/approvals'),api('/accounts'),api('/platforms'),api('/audit')]);
+  state.platforms=pf;
   renderStrip(inv); renderApprovals(appr); renderAccounts(acc); renderPlatforms(pf); renderLog(log);
 }
 async function load(){
@@ -335,6 +507,9 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='r'){ e.preventDefault(); refresh(); toast('Refreshed'); }
 });
 $('#refreshBtn').onclick=()=>{ refresh(); toast('Refreshed'); };
+$('#addToggle').onclick=()=>{ const f=$('#addForm');
+  if(f.classList.contains('hide')){ buildAddForm(); f.classList.remove('hide'); }
+  else f.classList.add('hide'); };
 load();
 """
 

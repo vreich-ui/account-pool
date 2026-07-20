@@ -218,6 +218,33 @@ def build_mcp(app: AppContext) -> FastMCP:
         a = accounts.retire(normalize_agent(agent_name), account_id, reason)
         return {"account_id": a.account_id, "status": a.status.value}
 
+    @mcp.tool()
+    def account_revoke(account_id: str, agent_name: str, reason: str | None = None) -> dict[str, Any]:
+        """Revoke authorization (suspends the account; consent must be re-attested to act again)."""
+        a = accounts.revoke_authorization(normalize_agent(agent_name), account_id, reason)
+        return {"account_id": a.account_id, "status": a.status.value}
+
+    @mcp.tool()
+    def account_disconnect(account_id: str, agent_name: str) -> dict[str, Any]:
+        """Remove the account's stored platform credentials (breaks the platform-API link)."""
+        a = accounts.disconnect(normalize_agent(agent_name), account_id)
+        return {"account_id": a.account_id, "status": a.status.value, "connection_id": None}
+
+    @mcp.tool()
+    def account_connection(account_id: str) -> dict[str, Any]:
+        """The account's platform-API connection metadata (auth type, provider, scopes, expiry).
+        Never returns secret material."""
+        conn = accounts.get_connection(account_id)
+        return conn.model_dump(mode="json") if conn else {"connection": None}
+
+    @mcp.tool()
+    def platforms() -> list[dict[str, Any]]:
+        """Every known platform with its support tier (live / draft_only / manual / planned),
+        publish mode, allowed verbs, and policy — for administering platform-API coverage."""
+        from ..support import platform_overview
+
+        return platform_overview()
+
     # ================= Acting ("acts") =================
     @mcp.tool()
     def draft_create(
