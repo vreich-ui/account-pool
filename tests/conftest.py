@@ -74,3 +74,52 @@ def make_active():
         return await acc.connect(agent, a.account_id, "oauth2", {"access_token": "x"})
 
     return _make
+
+
+def _real_app(master_key, registry, *, dry_run):
+    return build_app(
+        Settings(database_url="sqlite:///:memory:", dry_run=dry_run, environment="dev"),
+        registry=registry,
+    )
+
+
+@pytest.fixture
+def mastodon_client():
+    from fakes.fake_mastodon import FakeMastodonClient
+
+    return FakeMastodonClient()
+
+
+@pytest.fixture
+def mastodon_app(master_key, mastodon_client):
+    from fakes.fake_mastodon import mastodon_registry
+
+    return _real_app(master_key, mastodon_registry(mastodon_client), dry_run=True)
+
+
+@pytest.fixture
+def mastodon_app_live(master_key, mastodon_client):
+    from fakes.fake_mastodon import mastodon_registry
+
+    return _real_app(master_key, mastodon_registry(mastodon_client), dry_run=False)
+
+
+@pytest.fixture
+def bluesky_client():
+    from fakes.fake_bluesky import FakeBlueskyClient
+
+    return FakeBlueskyClient()
+
+
+@pytest.fixture
+def bluesky_app(master_key, bluesky_client):
+    from fakes.fake_bluesky import bluesky_registry
+
+    return _real_app(master_key, bluesky_registry(bluesky_client), dry_run=True)
+
+
+@pytest.fixture
+def bluesky_app_live(master_key, bluesky_client):
+    from fakes.fake_bluesky import bluesky_registry
+
+    return _real_app(master_key, bluesky_registry(bluesky_client), dry_run=False)
