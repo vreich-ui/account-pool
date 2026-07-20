@@ -29,11 +29,18 @@ all exercised end-to-end with an in-memory `FakeAdapter` and a global dry-run.
 
 **M1 — Reddit.** A real `asyncpraw`-backed adapter (`adapters/reddit.py`): authenticate, read a
 submission/comment, search, publish a self-post to the account's **own profile** (`u_<username>`),
-and reply to a submission/comment (third-party replies route to approval). Voting is absent by
-design. Enable it with `ACCOUNT_POOL_REAL_ADAPTERS=reddit` (install the extra with
-`pip install -e '.[reddit]'`); everything else stays on the `FakeAdapter`. Remaining adapters
-(Mastodon/Bluesky → X → Medium/Substack draft-only) land in later milestones. See
-`src/account_pool/adapters/`.
+and reply to a submission/comment (third-party replies route to approval). Voting is absent by design.
+
+**M2 — Mastodon + Bluesky.** `adapters/mastodon.py` (Mastodon.py, sync SDK wrapped in a worker
+thread) and `adapters/bluesky.py` (atproto, async): authenticate, publish to the account's own
+timeline/feed, reply, favourite/boost or like/repost, read, and search. Self-identification is
+enforced — Mastodon sets the account **bot flag** at connect; Bluesky records the automated
+**self-label**. Bluesky requires an app password.
+
+Enable real adapters per platform via `ACCOUNT_POOL_REAL_ADAPTERS` (comma-separated, e.g.
+`reddit,mastodon,bluesky`) and install the matching extras (`pip install -e '.[reddit,mastodon,bluesky]'`);
+everything else stays on the `FakeAdapter`, and `dry_run` still gates writes. Remaining adapters
+(X → Medium/Substack draft-only) land in later milestones. See `src/account_pool/adapters/`.
 
 ## Layout
 

@@ -19,9 +19,15 @@ AdapterFactory = Callable[[], PlatformAdapter]
 def _real_adapter_factories() -> dict[Platform, AdapterFactory]:
     """Real, network-backed adapters, imported lazily so their optional deps aren't required
     unless a platform is actually enabled."""
+    from .bluesky import BlueskyAdapter
+    from .mastodon import MastodonAdapter
     from .reddit import RedditAdapter
 
-    return {Platform.REDDIT: RedditAdapter}
+    return {
+        Platform.REDDIT: RedditAdapter,
+        Platform.MASTODON: MastodonAdapter,
+        Platform.BLUESKY: BlueskyAdapter,
+    }
 
 
 class AdapterRegistry:
