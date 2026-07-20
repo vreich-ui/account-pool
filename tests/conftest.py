@@ -123,3 +123,24 @@ def bluesky_app_live(master_key, bluesky_client):
     from fakes.fake_bluesky import bluesky_registry
 
     return _real_app(master_key, bluesky_registry(bluesky_client), dry_run=False)
+
+
+@pytest.fixture
+def twitter_client():
+    from fakes.fake_twitter import FakeTweepyClient
+
+    return FakeTweepyClient()
+
+
+@pytest.fixture
+def twitter_app(master_key, twitter_client):
+    from fakes.fake_twitter import twitter_registry
+
+    return _real_app(master_key, twitter_registry(twitter_client), dry_run=True)
+
+
+@pytest.fixture
+def twitter_app_live(master_key, twitter_client):
+    from fakes.fake_twitter import twitter_registry
+
+    return _real_app(master_key, twitter_registry(twitter_client), dry_run=False)
