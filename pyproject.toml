@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "account-pool"
+version = "0.1.0"
+description = "A compliance-first account pool: hold social accounts as governed objects and let external agents post/review/comment via an MCP server."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Kugel Brands" }]
+keywords = ["mcp", "social-media", "agents", "account-pool"]
+
+dependencies = [
+    "mcp>=1.2.0",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "sqlalchemy>=2.0",
+    "cryptography>=42.0",
+    "structlog>=24.1",
+    "anyio>=4.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.9",
+]
+# Platform adapters are pulled in per-milestone so the core installs light.
+reddit = ["asyncpraw>=7.7", "praw>=7.7"]
+mastodon = ["Mastodon.py>=1.8"]
+bluesky = ["atproto>=0.0.46"]
+twitter = ["tweepy>=4.14"]
+admin = ["fastapi>=0.110", "uvicorn>=0.29"]
+
+[project.scripts]
+account-pool-mcp = "account_pool.server.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/account_pool"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["account_pool"]
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
