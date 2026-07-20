@@ -9,6 +9,7 @@ from .base import (
     AdapterSession,
     AuthState,
     ComplianceState,
+    ContentInvalid,
     HealthReport,
     PlatformAdapter,
     ReadResult,
@@ -17,7 +18,7 @@ from .base import (
     UnsupportedCapability,
 )
 from .fake import FakeAdapter
-from .registry import AdapterRegistry, default_registry
+from .registry import AdapterRegistry, build_registry, default_registry
 
 __all__ = [
     "PlatformAdapter",
@@ -30,7 +31,9 @@ __all__ = [
     "ReadResult",
     "SearchResult",
     "UnsupportedCapability",
+    "ContentInvalid",
     "FakeAdapter",
     "AdapterRegistry",
     "default_registry",
+    "build_registry",
 ]

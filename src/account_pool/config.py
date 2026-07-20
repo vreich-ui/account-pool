@@ -44,10 +44,19 @@ class Settings(BaseSettings):
     vault_allow_dev_keyfile: bool = True
     vault_dev_keyfile: str = "./account_pool_master.key"
 
+    # ---- Adapters ----
+    # Comma-separated platform values to back with real (network) adapters instead of the
+    # in-memory FakeAdapter, e.g. "reddit". Global dry_run still gates whether they write.
+    real_adapters: str = ""
+
     # ---- Policy defaults ----
     default_lock_ttl_seconds: int = 900
     # Third-party comments/replies/reactions require human approval by default (hybrid autonomy).
     default_require_approval: bool = True
+
+    @property
+    def real_adapters_list(self) -> list[str]:
+        return [s.strip() for s in self.real_adapters.split(",") if s.strip()]
 
     # ---- MCP transport ----
     mcp_transport: Literal["stdio", "http"] = "stdio"

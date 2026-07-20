@@ -6,7 +6,7 @@ resolves to a :class:`FakeAdapter`; real adapters register here as later milesto
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from functools import partial
 
 from ..domain.enums import Platform
@@ -14,6 +14,14 @@ from .base import PlatformAdapter
 from .fake import FakeAdapter
 
 AdapterFactory = Callable[[], PlatformAdapter]
+
+
+def _real_adapter_factories() -> dict[Platform, AdapterFactory]:
+    """Real, network-backed adapters, imported lazily so their optional deps aren't required
+    unless a platform is actually enabled."""
+    from .reddit import RedditAdapter
+
+    return {Platform.REDDIT: RedditAdapter}
 
 
 class AdapterRegistry:
@@ -41,4 +49,19 @@ def default_registry() -> AdapterRegistry:
     registry = AdapterRegistry()
     for platform in Platform:
         registry.register(platform, partial(FakeAdapter, platform=platform))
+    return registry
+
+
+def build_registry(real_adapters: Iterable[str] | None = None) -> AdapterRegistry:
+    """A registry that uses real adapters for the named platforms and FakeAdapter for the rest.
+
+    ``real_adapters`` is an iterable of platform values (e.g. ``["reddit"]``). Global/​per-call
+    ``dry_run`` still gates whether a real adapter actually writes.
+    """
+    registry = default_registry()
+    wanted = {s.strip().lower() for s in (real_adapters or []) if s and s.strip()}
+    if wanted:
+        for platform, factory in _real_adapter_factories().items():
+            if platform.value in wanted:
+                registry.register(platform, factory)
     return registry

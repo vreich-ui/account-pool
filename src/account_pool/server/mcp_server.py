@@ -223,21 +223,24 @@ def build_mcp(app: AppContext) -> FastMCP:
     def draft_create(
         account_id: str,
         body: str,
+        title: str | None = None,
         media_refs: list[str] | None = None,
         disclosure: str | None = None,
     ) -> dict[str, Any]:
-        """Create a content draft. Always allowed — drafting has no side effects."""
-        return actions.create_draft(account_id, body, media_refs, disclosure).model_dump(mode="json")
+        """Create a content draft. Always allowed — drafting has no side effects. ``title`` is
+        required by some platforms (Reddit submissions, Medium posts)."""
+        return actions.create_draft(account_id, body, title, media_refs, disclosure).model_dump(mode="json")
 
     @mcp.tool()
     def draft_update(
         draft_id: str,
         body: str | None = None,
+        title: str | None = None,
         media_refs: list[str] | None = None,
         disclosure: str | None = None,
     ) -> dict[str, Any]:
         """Revise a draft (bumps its revision, invalidating any pinned approval)."""
-        return actions.update_draft(draft_id, body, media_refs, disclosure).model_dump(mode="json")
+        return actions.update_draft(draft_id, body, title, media_refs, disclosure).model_dump(mode="json")
 
     @mcp.tool()
     async def action_validate(

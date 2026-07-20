@@ -126,6 +126,7 @@ class TargetRef(_Base):
 
     raw: str  # url or platform id supplied by the agent
     platform: Platform | None = None
+    kind: str | None = None  # submission / comment / subreddit / user (platform-specific)
     container: str | None = None  # subreddit / instance / community
     parent_id: str | None = None  # comment/post being replied to
     # Whether this target is a channel the pool owns (drives autonomy: own => auto, third-party
@@ -196,6 +197,8 @@ class ContentDraft(_Base):
     draft_id: str
     account_id: str
     body: str
+    # Title is required by some platforms (Reddit submissions, Medium posts); ignored by others.
+    title: str | None = None
     media_refs: list[str] = Field(default_factory=list)
     disclosure: str | None = None
     revision: int = 1
