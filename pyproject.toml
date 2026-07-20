@@ -60,6 +60,10 @@ select = ["E", "F", "I", "UP", "B"]
 # FastAPI dependency-injection markers are call-in-default by design.
 extend-immutable-calls = ["fastapi.Body", "fastapi.Depends", "fastapi.Header", "fastapi.Query"]
 
+[tool.ruff.lint.per-file-ignores]
+# ui.py embeds a CSS/JS dashboard template where line length is not meaningful.
+"src/account_pool/server/ui.py" = ["E501"]
+
 [tool.mypy]
 python_version = "3.11"
 packages = ["account_pool"]
