@@ -8,6 +8,7 @@ import pytest
 from account_pool.app import build_app
 from account_pool.config import Settings
 from account_pool.vault.keyref import generate_key
+from fakes.fake_reddit import FakeRedditClient, reddit_registry
 
 
 @pytest.fixture
@@ -15,6 +16,30 @@ def master_key(monkeypatch):
     key = generate_key()
     monkeypatch.setenv("ACCOUNT_POOL_MASTER_KEY", key)
     return key
+
+
+@pytest.fixture
+def reddit_client():
+    """A shared fake asyncpraw client; assert on its recorded writes."""
+    return FakeRedditClient(username="brand_reddit")
+
+
+@pytest.fixture
+def reddit_app(master_key, reddit_client):
+    """A dry-run app whose Reddit platform is backed by the real RedditAdapter + a fake client."""
+    return build_app(
+        Settings(database_url="sqlite:///:memory:", dry_run=True, environment="dev"),
+        registry=reddit_registry(reddit_client),
+    )
+
+
+@pytest.fixture
+def reddit_app_live(master_key, reddit_client):
+    """Like ``reddit_app`` but with dry_run off, so real submits reach the fake client."""
+    return build_app(
+        Settings(database_url="sqlite:///:memory:", dry_run=False, environment="dev"),
+        registry=reddit_registry(reddit_client),
+    )
 
 
 @pytest.fixture

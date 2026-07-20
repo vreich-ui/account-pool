@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from .accounts.service import AccountService
 from .actions.locking import LockService
 from .actions.service import ActionService
-from .adapters.registry import AdapterRegistry, default_registry
+from .adapters.registry import AdapterRegistry, build_registry
 from .approvals.queue import ApprovalQueue
 from .audit.log import AuditLogger
 from .config import Settings, get_settings
@@ -64,7 +64,7 @@ def build_app(
     if vault is None:
         vault = EncryptedVault(resolve_master_key(settings), settings.vault_path)
     provider: ConnectionProvider = BuiltinConnectionProvider(vault)
-    registry = registry or default_registry()
+    registry = registry or build_registry(settings.real_adapters_list)
     engine = PolicyEngine()
     rate_limiter = RateLimiter()
     coordination = CoordinationTracker()

@@ -25,8 +25,14 @@ consensus. You cannot register an account you can't attest to owning.
 ## Status
 
 **M0 — spine.** Domain model, encrypted vault, policy guard, audit, approvals, and the MCP surface,
-all exercised end-to-end with an in-memory `FakeAdapter` and a global dry-run. Real platform adapters
-(Reddit → Mastodon/Bluesky → X → Medium/Substack draft-only) land in later milestones. See
+all exercised end-to-end with an in-memory `FakeAdapter` and a global dry-run.
+
+**M1 — Reddit.** A real `asyncpraw`-backed adapter (`adapters/reddit.py`): authenticate, read a
+submission/comment, search, publish a self-post to the account's **own profile** (`u_<username>`),
+and reply to a submission/comment (third-party replies route to approval). Voting is absent by
+design. Enable it with `ACCOUNT_POOL_REAL_ADAPTERS=reddit` (install the extra with
+`pip install -e '.[reddit]'`); everything else stays on the `FakeAdapter`. Remaining adapters
+(Mastodon/Bluesky → X → Medium/Substack draft-only) land in later milestones. See
 `src/account_pool/adapters/`.
 
 ## Layout

@@ -14,6 +14,7 @@ from .. import clock
 from ..adapters.base import (
     ActionResult,
     AdapterSession,
+    ContentInvalid,
     ReadResult,
     SearchResult,
     UnsupportedCapability,
@@ -155,6 +156,7 @@ class ActionService:
         self,
         account_id: str,
         body: str,
+        title: str | None = None,
         media_refs: list[str] | None = None,
         disclosure: str | None = None,
     ) -> ContentDraft:
@@ -163,6 +165,7 @@ class ActionService:
             draft_id=new_id("draft"),
             account_id=account_id,
             body=body,
+            title=title,
             media_refs=media_refs or [],
             disclosure=disclosure,
         )
@@ -172,12 +175,15 @@ class ActionService:
         self,
         draft_id: str,
         body: str | None = None,
+        title: str | None = None,
         media_refs: list[str] | None = None,
         disclosure: str | None = None,
     ) -> ContentDraft:
         draft = self._get_draft(draft_id)
         if body is not None:
             draft.body = body
+        if title is not None:
+            draft.title = title
         if media_refs is not None:
             draft.media_refs = media_refs
         if disclosure is not None:
@@ -401,9 +407,14 @@ class ActionService:
 
         try:
             res = await self._dispatch(adapter, session, action.type, draft, target, react_kind, policy, dry)
-        except UnsupportedCapability as exc:
+        except (UnsupportedCapability, ContentInvalid) as exc:
+            code = (
+                DenialCode.CONTENT_INVALID
+                if isinstance(exc, ContentInvalid)
+                else DenialCode.CAPABILITY_UNSUPPORTED
+            )
             action.state = ActionState.FAILED
-            action.result = {"error": str(exc)}
+            action.result = {"error": str(exc), "denial_code": code.value}
             self._actions.upsert(action)
             self._audit.record(
                 actor,
@@ -411,9 +422,26 @@ class ActionService:
                 DecisionOutcome.DENY,
                 account_id=account.account_id,
                 action_id=action.action_id,
-                denial_code=DenialCode.CAPABILITY_UNSUPPORTED,
+                denial_code=code,
                 message=str(exc),
                 policy_snapshot=policy_snapshot,
+            )
+            return action
+
+        # An adapter that returned a non-ok result (e.g. a platform-side rejection) fails the action.
+        if not res.ok:
+            action.state = ActionState.FAILED
+            action.result = res.model_dump()
+            self._actions.upsert(action)
+            self._audit.record(
+                actor,
+                verb,
+                DecisionOutcome.DENY,
+                account_id=account.account_id,
+                action_id=action.action_id,
+                platform_result=res.model_dump(),
+                policy_snapshot=policy_snapshot,
+                message="adapter reported failure",
             )
             return action
 

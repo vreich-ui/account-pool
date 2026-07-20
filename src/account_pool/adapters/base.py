@@ -22,6 +22,10 @@ class UnsupportedCapability(RuntimeError):
     should already have blocked it via capability checks)."""
 
 
+class ContentInvalid(ValueError):
+    """Raised when a draft is missing platform-required content (e.g. a Reddit post has no title)."""
+
+
 @dataclass
 class AdapterSession:
     """What an adapter needs to act: the account object and its decrypted credentials."""
