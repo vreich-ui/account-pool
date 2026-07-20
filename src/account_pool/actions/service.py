@@ -747,6 +747,9 @@ class ActionService:
     def get_action(self, action_id: str) -> Action | None:
         return self._actions.get(action_id)
 
+    def get_draft(self, draft_id: str) -> ContentDraft | None:
+        return self._drafts.get(draft_id)
+
     def list_open_approvals(
         self, platform: str | None = None, account_id: str | None = None
     ) -> list[ApprovalItem]:

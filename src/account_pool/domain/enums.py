@@ -14,11 +14,18 @@ class Platform(StrEnum):
     TWITTER = "twitter"
     MEDIUM = "medium"
     SUBSTACK = "substack"
-    # Planned, behind partner/app-review gates:
+    # Planned, behind partner/app-review gates or without a sanctioned automation API:
     LINKEDIN = "linkedin"
     FACEBOOK = "facebook"
     INSTAGRAM = "instagram"
     THREADS = "threads"
+    YOUTUBE = "youtube"
+    TIKTOK = "tiktok"
+    DISCORD = "discord"
+    TELEGRAM = "telegram"
+    PINTEREST = "pinterest"
+    LEMMY = "lemmy"
+    NOSTR = "nostr"
 
 
 class ActionType(StrEnum):

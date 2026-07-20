@@ -36,6 +36,11 @@ def _real_adapter_factories() -> dict[Platform, AdapterFactory]:
     }
 
 
+def real_adapter_platforms() -> set[Platform]:
+    """Platforms that have a real (network) adapter available."""
+    return set(_real_adapter_factories().keys())
+
+
 class AdapterRegistry:
     def __init__(self) -> None:
         self._factories: dict[Platform, AdapterFactory] = {}

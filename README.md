@@ -61,6 +61,16 @@ draft revision (`approval_resubmit`); and an optional **notifier** hook fires wh
 lets them approve/reject/resubmit queued acts — guarded by a bearer token
 (`ACCOUNT_POOL_ADMIN_BEARER`).
 
+**M6 — ADHD-friendly dashboard + broader platform view.** The admin app now serves a calm,
+self-contained web **dashboard** (`server/ui.py`, open `http://127.0.0.1:8849/`): one focal point —
+*"Needs you now"*, the approval queue, with big Approve / Needs-changes actions, keyboard shortcuts
+(`j`/`k`/`a`/`c`/`r`), a persistent **Safe-mode** banner when dry-run is on, and everything else
+(accounts, platforms, recent activity) quiet behind progressive-disclosure sections. Light/dark,
+mobile-friendly, zero build step. The platform model is broadened to 17 SM platforms shown by honest
+**support tier** — `live` (Reddit/Mastodon/Bluesky/X), `draft_only` (Medium), `manual` (Substack),
+and `planned` (LinkedIn, Meta, YouTube, TikTok, Discord, Telegram, Pinterest, Lemmy, Nostr) — via
+`GET /platforms` and `account_pool.support.platform_overview()`.
+
 ## Layout
 
 ```

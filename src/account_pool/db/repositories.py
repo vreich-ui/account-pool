@@ -148,6 +148,12 @@ class ConnectionRepository:
             row = s.get(ConnectionRow, connection_id)
             return Connection.model_validate(row.data) if row else None
 
+    def delete(self, connection_id: str) -> None:
+        with self._db.session() as s:
+            row = s.get(ConnectionRow, connection_id)
+            if row is not None:
+                s.delete(row)
+
 
 class DraftRepository:
     def __init__(self, db: Database) -> None:
