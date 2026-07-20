@@ -38,6 +38,7 @@ admin = ["fastapi>=0.110", "uvicorn>=0.29"]
 
 [project.scripts]
 account-pool-mcp = "account_pool.server.mcp_server:main"
+account-pool-admin = "account_pool.server.rest_admin:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/account_pool"]
@@ -54,6 +55,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection markers are call-in-default by design.
+extend-immutable-calls = ["fastapi.Body", "fastapi.Depends", "fastapi.Header", "fastapi.Query"]
 
 [tool.mypy]
 python_version = "3.11"

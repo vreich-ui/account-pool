@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     default_lock_ttl_seconds: int = 900
     # Third-party comments/replies/reactions require human approval by default (hybrid autonomy).
     default_require_approval: bool = True
+    # Open approvals older than this are considered stale and cannot be approved (default 24h).
+    approval_ttl_seconds: int = 86400
 
     @property
     def real_adapters_list(self) -> list[str]:
@@ -63,6 +65,13 @@ class Settings(BaseSettings):
     mcp_host: str = "127.0.0.1"
     mcp_port: int = 8848
     mcp_bearer_env: str = "ACCOUNT_POOL_MCP_BEARER"
+
+    # ---- Admin REST surface ----
+    admin_host: str = "127.0.0.1"
+    admin_port: int = 8849
+    # Name of the env var holding the admin bearer token. If unset, the surface is open only in
+    # non-prod (dev convenience); in prod an unset token denies all requests.
+    admin_bearer_env: str = "ACCOUNT_POOL_ADMIN_BEARER"
 
     server_name: str = Field(default="account-pool", description="MCP server display name")
 
