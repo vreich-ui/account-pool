@@ -34,16 +34,18 @@ async def test_cannot_act_on_unauthorized_account(app):
     assert result.decision_trace[-1].denial_code == DenialCode.ACCOUNT_NOT_ACTIVE
 
 
-async def test_substack_is_manual_only(app):
-    acc = app.account_service
+async def test_substack_is_manual_stage_not_live(app_live):
+    """Substack has no publish API — publishing is staged as a manual export, never live-posted."""
+    acc = app_live.account_service
     a = acc.register("agent-1", "substack", "brandletter")
     acc.authorize("agent-1", a.account_id, owner="k", consent_scope=["publish"])
     a = await acc.connect("agent-1", a.account_id, "api_key", {"key": "x"})
-    token = app.lock_service.checkout(a.account_id, "agent-1").lock.token
-    d = app.action_service.create_draft(a.account_id, "newsletter body")
-    result = await app.action_service.publish("agent-1", a.account_id, token, d.draft_id)
-    assert result.state.value == "refused"
-    assert result.decision_trace[-1].denial_code == DenialCode.PUBLISH_MODE_MANUAL
+    token = app_live.lock_service.checkout(a.account_id, "agent-1").lock.token
+    d = app_live.action_service.create_draft(a.account_id, "newsletter body")
+    result = await app_live.action_service.publish("agent-1", a.account_id, token, d.draft_id)
+    assert result.state.value == "done"
+    assert result.result["detail"]["staged"] is True
+    assert result.result["detail"]["manual"] is True
 
 
 async def test_medium_is_draft_only_no_real_write(app_live):

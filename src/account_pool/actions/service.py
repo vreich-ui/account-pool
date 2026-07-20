@@ -476,13 +476,17 @@ class ActionService:
     ) -> ActionResult:
         if action_type == ActionType.PUBLISH:
             if policy.publish_mode in (PublishMode.DRAFT_ONLY, PublishMode.MANUAL):
+                # Draft-only (Medium) / manual (Substack): stage the content for a human/draft
+                # workflow. No automated network write is made for these modes.
                 return ActionResult(
                     ok=True,
                     dry_run=dry,
                     detail={
                         "staged": True,
+                        "manual": policy.publish_mode == PublishMode.MANUAL,
                         "publish_mode": policy.publish_mode.value,
                         "draft_id": draft.draft_id if draft else None,
+                        "title": draft.title if draft else None,
                     },
                 )
             return await adapter.publish(session, draft, dry_run=dry)
