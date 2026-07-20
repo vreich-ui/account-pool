@@ -53,9 +53,9 @@ _DEFAULTS: dict[Platform, PlatformPolicy] = {
     ),
     Platform.SUBSTACK: PlatformPolicy(
         platform=Platform.SUBSTACK,
-        publish_mode=PublishMode.MANUAL,  # no official API -> manual assist only
-        allowed_verbs=[ActionType.PUBLISH],
-        rate_per_minute={"publish": 1},
+        publish_mode=PublishMode.MANUAL,  # no official API -> manual assist + RSS read only
+        allowed_verbs=[ActionType.PUBLISH, ActionType.READ],
+        rate_per_minute={"publish": 1, "read": 20},
     ),
 }
 

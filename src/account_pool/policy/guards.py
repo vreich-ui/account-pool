@@ -79,13 +79,8 @@ class CapabilityGuard:
         if at == ActionType.PUBLISH:
             if not caps.can_publish:
                 return deny(self.name, DenialCode.CAPABILITY_UNSUPPORTED, "publish unsupported")
-            if policy.publish_mode == PublishMode.MANUAL:
-                return deny(
-                    self.name,
-                    DenialCode.PUBLISH_MODE_MANUAL,
-                    "platform is manual-only; no automated publish path",
-                )
-            # DRAFT_ONLY is allowed here — the actions service stages a draft instead of writing.
+            # DRAFT_ONLY and MANUAL are allowed: the actions service stages a draft/export instead
+            # of making a live post (no automated network write occurs for those modes).
             return allow(self.name)
 
         if at == ActionType.COMMENT:

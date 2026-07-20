@@ -21,7 +21,9 @@ def _real_adapter_factories() -> dict[Platform, AdapterFactory]:
     unless a platform is actually enabled."""
     from .bluesky import BlueskyAdapter
     from .mastodon import MastodonAdapter
+    from .medium import MediumAdapter
     from .reddit import RedditAdapter
+    from .substack import SubstackAdapter
     from .twitter import TwitterAdapter
 
     return {
@@ -29,6 +31,8 @@ def _real_adapter_factories() -> dict[Platform, AdapterFactory]:
         Platform.MASTODON: MastodonAdapter,
         Platform.BLUESKY: BlueskyAdapter,
         Platform.TWITTER: TwitterAdapter,
+        Platform.MEDIUM: MediumAdapter,
+        Platform.SUBSTACK: SubstackAdapter,
     }
 
 

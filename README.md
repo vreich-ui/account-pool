@@ -45,8 +45,13 @@ off the read/search capabilities up front so callers degrade gracefully.
 Enable real adapters per platform via `ACCOUNT_POOL_REAL_ADAPTERS` (comma-separated, e.g.
 `reddit,mastodon,bluesky,twitter`) and install the matching extras
 (`pip install -e '.[reddit,mastodon,bluesky,twitter]'`); everything else stays on the `FakeAdapter`,
-and `dry_run` still gates writes. Remaining adapters (Medium/Substack draft-only) land in a later
-milestone. See `src/account_pool/adapters/`.
+and `dry_run` still gates writes. See `src/account_pool/adapters/`.
+
+**M5 — Medium + Substack (draft-only).** `adapters/medium.py` and `adapters/substack.py`: real
+**review** (read a user's / publication's recent posts via public RSS), and draft-only publishing —
+the service *stages* the content (Medium draft-only, Substack manual export) and the adapters' own
+`publish` raises, so **no live post is ever made** for these platforms. No unofficial write endpoints
+are used. Enable with `ACCOUNT_POOL_REAL_ADAPTERS=...,medium,substack`.
 
 **M4 — approval polish + admin surface.** Approvals now carry a TTL (`approval_ttl_seconds`) and
 can't be approved once stale; a changes-requested approval can be **resubmitted** against the latest
